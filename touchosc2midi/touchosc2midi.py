@@ -27,6 +27,7 @@ from functools import partial
 
 import liblo
 import mido
+import pyautogui
 
 from docopt import docopt
 
@@ -80,25 +81,43 @@ def message_to_oscsysexpayload(message):
 
 
 class OscHandler(object):
+    _repl = {'control': 'ctrl', 'command': 'winleft'}
+
     def __init__(self, sink):
         self.sink = sink
 
-    def on_osc(self, path, args, types, src):
-        log.debug("OSC received from: {}:{} UDP: {} URL: {}".format(
+    def _log_osc(self, path, args, types, src):
+        log.debug("OSC received {},{} {!r} from: {}:{} UDP: {} URL: {}".format(
+            path,
+            types,
+            args,
             src.get_hostname(),
             src.get_port(),
             src.get_protocol() == liblo.UDP,
             src.get_url()))
 
+    def on_midi(self, path, args, types, src):
+        self._log_osc(path, args, types, src)
         if path == '/midi' and types == 'm':
-            log.debug("received /midi,m with arg {}".format(args[0]))
             msg = message_from_oscmidipayload(args[0])
         elif path == '/sysex' and types == 's':
-            log.debug("received /sysex,s with arg {}".format(args[0]))
             msg = message_from_oscsysexpayload(args[0])
 
         log.debug("Sending MIDI message {}".format(msg))
         self.sink.send(msg)
+
+    def on_key(self, path, args, types, src):
+        self._log_osc(path, args, types, src)
+        if path == '/key' and types == 'si':
+            key, state = args
+            keys = [self._repl.get(k, k) for k in key.lower().split('+')]
+
+            if state == 0:
+                for key in keys:
+                    pyautogui.keyDown(key)
+            elif state == 1:
+                for key in reversed(keys):
+                    pyautogui.keyUp(key)
 
 
 class MidiHandler(object):
@@ -168,8 +187,10 @@ def main():
             log.debug("Listening for touchOSC on {}:{}.".format(psa.ip, PORT))
             server = liblo.ServerThread(PORT)
             osc_handler = OscHandler(midi_out)
-            server.add_method('/midi', 'm', osc_handler.on_osc)
-            server.add_method('/sysex', 's', osc_handler.on_osc)
+
+            server.add_method('/midi', 'm', osc_handler.on_midi)
+            server.add_method('/sysex', 's', osc_handler.on_midi)
+            server.add_method('/key', 'si', osc_handler.on_key)
 
             target = liblo.Address(target_address, PORT + 1, liblo.UDP)
             log.info("Will send to {}.".format(target.get_url()))

@@ -27,13 +27,18 @@ from functools import partial
 
 import liblo
 import mido
-import pyautogui
 
 from docopt import docopt
 
 from . import __version__
 from .advertise import PORT, main_ip, Advertisement
 from .configuration import list_backends, list_ports, configure_ioports, get_mido_backend
+
+try:
+    from .x11keyboard import key_down, key_up
+    _have_x11 = True
+except ImportError:
+    _have_x11 = False
 
 
 log = logging.getLogger(__name__)
@@ -108,16 +113,16 @@ class OscHandler(object):
 
     def on_key(self, path, args, types, src):
         self._log_osc(path, args, types, src)
-        if path == '/key' and types == 'si':
+        if path == '/key' and types == 'si' and _have_x11:
             key, state = args
             keys = [self._repl.get(k, k) for k in key.lower().split('+')]
 
             if state == 0:
                 for key in keys:
-                    pyautogui.keyDown(key)
+                    key_down(key)
             elif state == 1:
                 for key in reversed(keys):
-                    pyautogui.keyUp(key)
+                    key_up(key)
 
 
 class MidiHandler(object):

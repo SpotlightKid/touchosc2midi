@@ -21,11 +21,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-x11keyboard
------------
+PyAutoGUI
+---------
 
-The x11keyboard module was derived from PyAutoGUI, which comes with the
-following license.
+The x11keyboard module was derived and still contains some code from PyAutoGUI,
+which comes with the following license:
 
 Copyright (c) 2014, Al Sweigart
 All rights reserved.

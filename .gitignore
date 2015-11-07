@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 
 # C extensions
+touchosc2midi/xtest.c
 *.so
 
 # Distribution / packaging

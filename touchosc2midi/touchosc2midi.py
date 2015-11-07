@@ -86,7 +86,7 @@ def message_to_oscsysexpayload(message):
 
 
 class OscHandler(object):
-    _repl = {'control': 'ctrl', 'command': 'winleft'}
+    _repl = {'control': 'ctrl', 'command': 'win'}
 
     def __init__(self, sink):
         self.sink = sink

@@ -1,5 +1,12 @@
-from setuptools import setup
+from setuptools import setup, Extension
+from Cython.Build import cythonize
+
 from touchosc2midi import __version__
+
+
+extensions = [Extension('touchosc2midi.xtest',
+                        sources = ["touchosc2midi/xtest.pyx"],
+                        libraries = ["X11", "Xtst"])]
 
 setup(name='touchosc2midi',
       version=__version__,

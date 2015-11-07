@@ -19,9 +19,8 @@ cdef extern from "X11/extensions/XTest.h":
     cdef int XSync(Display*, Bool onoff)
 
 
-# keysym = XkbKeycodeToKeysym(display, keycode, 0, 0)
-
 cdef Display* _display
+
 
 cdef Display* _get_display():
     cdef int opcode, event_base, error_base, major_version, minor_version

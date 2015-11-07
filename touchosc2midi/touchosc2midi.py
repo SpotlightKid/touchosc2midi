@@ -168,8 +168,14 @@ def main():
     options = docopt(__doc__, version=__version__)
     logging.basicConfig(level=logging.DEBUG if options.get('--verbose') else logging.INFO,
                         format="%(message)s")
+
     log.debug("Options from cmdline are {}".format(options))
     backend = get_mido_backend()
+
+    if not _have_x11:
+        log.warning("Could not import X Windows library. Support for "
+                    "generating keyboard events will not be available.")
+
     if options.get('list'):
         if options.get('backends'):
             list_backends()

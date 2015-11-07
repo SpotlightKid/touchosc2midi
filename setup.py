@@ -35,4 +35,4 @@ setup(name='touchosc2midi',
           "Topic :: Home Automation",
           "Topic :: Multimedia :: Sound/Audio :: MIDI",
       ]
-)
+    )

@@ -20,7 +20,8 @@ setup(name='touchosc2midi',
                         "docopt",
                         "mido",
                         "zeroconf",
-                        "python-rtmidi==0.5b1"],
+                        "python-rtmidi==0.5b1"
+                        "python3-xlib"],
       packages=["touchosc2midi"],
       entry_points={"console_scripts": [
           "touchosc2midi = touchosc2midi.touchosc2midi:main"

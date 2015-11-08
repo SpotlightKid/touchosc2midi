@@ -222,7 +222,10 @@ _keyname2keycode = {}
 for key in _keysyms:
     keysym = _keysyms[key]
     keyspec = _keycode(keysym)
-    _keyname2keycode[key] = _keyname2keycode[keysym.lower()] = keyspec
+    _keyname2keycode[key] = keyspec
+
+    if key != keysym.lower():
+        _keyname2keycode[keysym.lower()] = keyspec
 
 for key in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890":
     _keyname2keycode[key] = _keycode(key)

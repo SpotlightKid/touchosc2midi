@@ -101,6 +101,10 @@ class OscHandler(object):
             src.get_protocol() == liblo.UDP,
             src.get_url()))
 
+    def dispatch(self, path, args, types, src):
+        if path.startswith('/key/') and types == 'f':
+            self.on_key(path, args, types, src)
+
     def on_midi(self, path, args, types, src):
         self._log_osc(path, args, types, src)
         if path == '/midi' and types == 'm':
@@ -113,15 +117,23 @@ class OscHandler(object):
 
     def on_key(self, path, args, types, src):
         self._log_osc(path, args, types, src)
-        if path == '/key' and types == 'si' and _have_x11:
-            key, state = args
-            keys = [self._repl.get(k, k) for k in key.lower().split('+')]
+        if _have_x11:
+            if path == '/key' and types == 'si':
+                key, state = args
+                keys = [self._repl.get(k, k) for k in key.lower().split('+')]
 
-            if state == 0:
-                for key in keys:
+                if state == 0:
+                    for key in keys:
+                        key_down(key)
+                elif state == 1:
+                    for key in reversed(keys):
+                        key_up(key)
+            elif path.startswith('/key/') and types == 'f':
+                key = path.split('/', 2)[-1]
+
+                if bool(args[0]):
                     key_down(key)
-            elif state == 1:
-                for key in reversed(keys):
+                else:
                     key_up(key)
 
 
@@ -165,6 +177,8 @@ def wait_for_target_address(ip=None):
 
 
 def main():
+    OSCPORT = 9001
+
     options = docopt(__doc__, version=__version__)
     logging.basicConfig(level=logging.DEBUG if options.get('--verbose') else logging.INFO,
                         format="%(message)s")
@@ -183,7 +197,7 @@ def main():
             list_ports(backend)
     else:
         try:
-            server = None
+            midibridge = keybridge = None
             midi_in, midi_out = configure_ioports(backend,
                                                   virtual=not (options.get('--midi-in') or
                                                                options.get('--midi-out')),
@@ -195,13 +209,16 @@ def main():
 
             target_address = wait_for_target_address(psa.ip)
 
-            log.debug("Listening for touchOSC on {}:{}.".format(psa.ip, PORT))
-            server = liblo.ServerThread(PORT)
+            log.debug("Listening for TouchOSC MIDI Bridge on {}:{}.".format(psa.ip, PORT))
+            midibridge = liblo.ServerThread(PORT)
+            log.debug("Listening for regular TouchOSC OSC messages on {}:{}.".format(psa.ip, OSCPORT))
+            keybridge = liblo.ServerThread(OSCPORT)
             osc_handler = OscHandler(midi_out)
 
-            server.add_method('/midi', 'm', osc_handler.on_midi)
-            server.add_method('/sysex', 's', osc_handler.on_midi)
-            server.add_method('/key', 'si', osc_handler.on_key)
+            midibridge.add_method('/midi', 'm', osc_handler.on_midi)
+            midibridge.add_method('/sysex', 's', osc_handler.on_midi)
+            #midibridge.add_method('/key', 'si', osc_handler.on_key)
+            keybridge.add_method(None, None, osc_handler.dispatch)
 
             target = liblo.Address(target_address, PORT + 1, liblo.UDP)
             log.info("Will send to {}.".format(target.get_url()))
@@ -210,15 +227,23 @@ def main():
             midi_in.callback = midi_handler.on_midi
 
             log.info("Listening for midi at {}.".format(midi_in))
-            server.start()
+            midibridge.start()
+            keybridge.start()
+
             while True:
                 time.sleep(.0001)
         except KeyboardInterrupt:
             psa.unregister()
             psa.close()
-            if server:
-                server.stop()
-                server.free()
+
+            if midibridge:
+                midibridge.stop()
+                midibridge.free()
+
+            if keybridge:
+                keybridge.stop()
+                keybridge.free()
+
             midi_in.close()
             log.info("closed all ports")
 

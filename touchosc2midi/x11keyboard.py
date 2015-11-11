@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Generate X11 keyboard events using the XTEST extension."""
 
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals
 
+import logging
 import os
 import time
 
@@ -28,8 +29,9 @@ __all__ = (
 )
 
 __version__ = '0.1'
-
 _display = None
+log = logging.getLogger(__name__)
+
 
 def _get_display():
     global _display
@@ -41,9 +43,12 @@ def _get_display():
 
 
 def _keycode(s):
+    display = _get_display()
     keysym = string_to_keysym(s)
-    keycode = _get_display().keysym_to_keycode(keysym)
-    return (keycode, keysym, _needs_shift(keycode, keysym))
+    keycodes = display.keysym_to_keycodes(keysym)
+    if keycodes:
+        #print("Keycodes for '%s', keysym 0x%x: %r" % (s, keysym, keycodes))
+        return (keysym,) + keycodes[0]
 
 
 def _needs_shift(keycode, keysym):
@@ -175,9 +180,10 @@ _keysyms = {
     '\r': 'Return',
     '\t': 'Tab',
     '\\': 'backslash',
+    '´': 'acute',
     '&': 'ampersand',
     "'": 'apostrophe',
-    '^': 'asciicircum',
+    '^': 'circumflex',
     '~': 'asciitilde',
     '*': 'asterisk',
     '@': 'at',
@@ -188,6 +194,7 @@ _keysyms = {
     ']': 'bracketright',
     ':': 'colon',
     ',': 'comma',
+    '°': 'degree',
     '$': 'dollar',
     '=': 'equal',
     '!': 'exclam',
@@ -206,7 +213,11 @@ _keysyms = {
     ';': 'semicolon',
     '/': 'slash',
     ' ': 'space',
-    '_': 'underscore'
+    '_': 'underscore',
+    'ä': 'adiaeresis',
+    'ö': 'odiaeresis',
+    'ü': 'udiaeresis',
+    'ß': 'ssharp',
 }
 
 # The _keyname2keycode dict maps a string that can be passed to key_down(),
@@ -222,21 +233,23 @@ _keyname2keycode = {}
 for key in _keysyms:
     keysym = _keysyms[key]
     keyspec = _keycode(keysym)
-    _keyname2keycode[key] = keyspec
 
-    if key != keysym.lower():
-        _keyname2keycode[keysym.lower()] = keyspec
+    if keyspec:
+        _keyname2keycode[key] = keyspec
+
+        if key != keysym.lower():
+            _keyname2keycode[keysym.lower()] = keyspec
 
 for key in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890":
     _keyname2keycode[key] = _keycode(key)
 
-SHIFT = _keyname2keycode['shift'][0]
 KEY_NAMES = list(_keyname2keycode) + [
     # Included for compatibility with PyAutoGUI. We don't support these.
     'accept', 'convert', 'final', 'fn', 'hanguel', 'junja',
     'launchmediaselect', 'nonconvert'
 ]
 
+_modifiers = [m[0] for m in _get_display().get_modifier_mapping()]
 
 
 def is_valid_key(key):
@@ -275,6 +288,8 @@ def key_down(key):
       None
 
     """
+    #log.debug("Key down: {!r}".format(key))
+
     if isinstance(key, int):
         fake_key_event(key)
     else:
@@ -283,13 +298,17 @@ def key_down(key):
         if not keyspec:
             return
 
-        if keyspec[2]:
-            fake_key_event(SHIFT)
+        log.debug("Keysym: 0x{1:x} ({1}), keycode: 0x{0:x} ({0}), "
+                  "index: {2}".format(*keyspec))
 
-        fake_key_event(keyspec[0])
+        if 2 <= keyspec[1] <= 255:
+            if keyspec[2]:
+                fake_key_event(_modifiers[keyspec[2]])
 
-        if keyspec[2]:
-            fake_key_event(SHIFT, False)
+            fake_key_event(keyspec[1])
+
+            if keyspec[2]:
+                fake_key_event(_modifiers[keyspec[2]], False)
 
     _get_display().sync()
 
@@ -308,6 +327,8 @@ def key_up(key):
       None
 
     """
+    #log.debug("Key up: {!r}".format(key))
+
     if isinstance(key, int):
         fake_key_event(key, False)
     else:
@@ -316,7 +337,11 @@ def key_up(key):
         if not keyspec:
             return
 
-        fake_key_event(keyspec[0], False)
+        log.debug("Keysym: 0x{1:x} ({1}), keycode: 0x{0:x} ({0})"
+                  .format(*keyspec))
+
+        if 2 <= keyspec[1] <= 255:
+            fake_key_event(keyspec[1], False)
 
     _get_display().sync()
 

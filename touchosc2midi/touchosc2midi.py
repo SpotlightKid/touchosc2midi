@@ -130,7 +130,7 @@ class OscHandler(object):
                         key_up(key)
             elif path.startswith('/key/') and types == 'f':
                 key = path.split('/', 2)[-1]
-                key = self._repl.get(k, k)
+                key = self._repl.get(key, key)
 
                 if key == 'capslock':
                     key_press(key)

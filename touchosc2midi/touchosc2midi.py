@@ -35,7 +35,7 @@ from .advertise import PORT, main_ip, Advertisement
 from .configuration import list_backends, list_ports, configure_ioports, get_mido_backend
 
 try:
-    from .x11keyboard import key_down, key_up
+    from .x11keyboard import key_down, key_press, key_up
     _have_x11 = True
 except ImportError:
     _have_x11 = False
@@ -130,8 +130,11 @@ class OscHandler(object):
                         key_up(key)
             elif path.startswith('/key/') and types == 'f':
                 key = path.split('/', 2)[-1]
+                key = self._repl.get(k, k)
 
-                if bool(args[0]):
+                if key == 'capslock':
+                    key_press(key)
+                elif bool(args[0]):
                     key_down(key)
                 else:
                     key_up(key)

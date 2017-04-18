@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 """
 Announce touchSCO-MIDI bridge via zeroconf.
-
-(c) 2015 velolala <fiets@einstueckheilewelt.de>
 """
 import socket
+import netifaces
 from time import sleep
 from zeroconf import Zeroconf, ServiceInfo
 import logging
@@ -14,19 +13,19 @@ TOUCHOSC_BRIDGE = '_touchoscbridge._udp.local.'
 PORT = 12101
 
 
-def main_ip():
+def default_route_interface():
     """
-    '192.0.2.0' is defined TEST-NET in RFC 5737,
-    so there *shouldn't* be custom routing for this.
-
-    :return: the IP of the default route's interface.
+    Query netifaces for the default route's ip.
+    Note: this only checks for IPv4 addresses.
     """
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.connect(("192.0.2.0", 0))
-    ip = sock.getsockname()[0]
-    log.debug("Assuming {} for main route's IP.".format(ip))
-    sock.close()
-    return ip
+    interface = netifaces.gateways()['default']
+    if interface:
+        name = interface[netifaces.AF_INET][1]
+        ip = netifaces.ifaddresses(name)[netifaces.AF_INET][0]['addr']
+        log.debug("found '{}:{}' as default route.".format(name, ip))
+        return ip
+    else:
+        raise RuntimeError("default interface not found. Check your network or use --ip switch.")
 
 
 def build_service_info(ip):
@@ -34,7 +33,10 @@ def build_service_info(ip):
     on for `ip` or the guessed default route interface's IP.
     """
     return ServiceInfo(type_=TOUCHOSC_BRIDGE,
-                       name="{}.{}".format(socket.gethostname(), TOUCHOSC_BRIDGE),
+                       name="{}.{}".format(
+                           socket.gethostname(),
+                           TOUCHOSC_BRIDGE
+                       ),
                        address=socket.inet_aton(ip),
                        port=PORT,
                        properties=dict(),
@@ -48,15 +50,17 @@ class Advertisement(object):
              (if None: default route's IP).
         """
         self.zeroconf = Zeroconf()
-        self.info = build_service_info(ip=ip or main_ip())
+        self.info = build_service_info(ip=ip or default_route_interface())
 
     def register(self):
         """Registers the service on the network.
         """
         self.zeroconf.register_service(self.info)
-        log.debug("Registered {} on {}:{}".format(self.info.name,
-                                                   self.ip,
-                                                   self.info.port))
+        log.debug("Registered {} on {}:{}".format(
+            self.info.name,
+            self.ip,
+            self.info.port
+        ))
 
     def unregister(self):
         """Unregisters the service.
@@ -70,7 +74,7 @@ class Advertisement(object):
         :ip: if string `ip` is given, use given IP when registering.
         """
         self.unregister()
-        self.info = build_service_info(ip=ip or main_ip())
+        self.info = build_service_info(ip=ip or default_route_interface())
         self.register()
 
     def close(self):
@@ -85,6 +89,7 @@ class Advertisement(object):
         return socket.inet_ntoa(self.info.address)
 
     ip = property(get_ip)
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
